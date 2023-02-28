@@ -1,0 +1,6 @@
+string req
+---
+#agent[i] corresponds to goal[i]
+int32[] agent_numbers
+int32[] agent_goals
+geometry_msgs/Pose[] agent_start
