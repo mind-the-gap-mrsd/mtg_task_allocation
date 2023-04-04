@@ -17,12 +17,13 @@ def geometry_msgs_to_array(agents, goals):
     for i in range (0, n_goals):
         goal_pose[i, :] = np.asarray([float(goals[i].position.x), float(goals[i].position.y)])
     #Format for  Google OR tools
-    nodes = np.concatenate((agent_pose, goal_pose), axis = 1)
+    nodes = np.concatenate((agent_pose, goal_pose), axis = 0)
+    return nodes
 
 def get_distance_matrix(agents, goals):
     #Set up problem, convert the mission_start values to arrays
-    #nodes = geometry_msgs_to_array(agents, goals)
-    nodes = np.concatenate((agents, goals), axis = 0)
+    nodes = geometry_msgs_to_array(agents, goals)
+    # nodes = np.concatenate((agents, goals), axis = 0)
     #print(nodes)
     #Set up dummy end location
     nodes = np.concatenate((np.asarray([[1,1]]), nodes), axis = 0) 

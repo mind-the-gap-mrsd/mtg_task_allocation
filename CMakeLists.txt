@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(mtg_mtsp_task_allocator)
+project(mtg_task_allocation)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -50,18 +50,18 @@ catkin_python_setup()
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  task.msg
-  agent_route.msg
-)
+# add_message_files(
+#   FILES
+#   task.msg
+#   agent_route.msg
+# )
 
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  ta_out.srv
-  #Service2.srv
-)
+# add_service_files(
+#   FILES
+#   ta_out.srv
+#   #Service2.srv
+# )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
