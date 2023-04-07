@@ -23,19 +23,25 @@ def geometry_msgs_to_array(agents, goals):
 def get_distance_matrix(agents, goals):
     #Set up problem, convert the mission_start values to arrays
     nodes = geometry_msgs_to_array(agents, goals)
+    print(goals)
     # nodes = np.concatenate((agents, goals), axis = 0)
     #print(nodes)
     #Set up dummy end location
     nodes = np.concatenate((np.asarray([[1,1]]), nodes), axis = 0) 
     n_agents = len(agents)
     #Calculate cost matrix
-    cost_mat = distance.cdist(nodes, nodes, "euclidean")
-
+    cost_mat = np.zeros((len(nodes),len(nodes)))
+    #cost_mat = distance.cdist(nodes, nodes, "euclidean")
+    distances = np.load("/home/dsreeni/Sem2/mtg_codebase/mtg_ws/src/mtg_task_allocation/src/helper_pkg/distances.npz")["distances"]
+    for i in range (len(nodes)):
+        for j in range (len(nodes)):
+            #arg = np.concatenate((i, j)).tolist()
+            cost_mat[i, j] = distances[int(nodes[i][0]), int(nodes[i][1]), int(nodes[j][0]), int(nodes[j][1])]
     #Modify cost matrix such that the distance from the goal as index 0 is equidistant (i.e. does not affect cost)
     cost_mat[0, :] = np.zeros_like(cost_mat[0,:])
     np.fill_diagonal(cost_mat, 0)
     cost_mat[:,0] = np.zeros_like(cost_mat[:,0])
-    print(cost_mat.shape)
+    print(cost_mat)
     return cost_mat.tolist(), n_agents
 
 def create_data_model(agents, goals): 
@@ -121,15 +127,15 @@ def solve_mtsp(agents, goals):
     routing.AddDimension(
         transit_callback_index,
         0,  # no slack
-        100,  # vehicle maximum travel distance
-        True,  # start cumul to zero
+        10,  # vehicle maximum travel distance
+        False,  # True starts cumul to zero
         dimension_name)
-    #distance_dimension = routing.GetDimensionOrDie(dimension_name)
-    #distance_dimension.SetGlobalSpanCostCoefficient(100)
+    distance_dimension = routing.GetDimensionOrDie(dimension_name)
+    distance_dimension.SetGlobalSpanCostCoefficient(1000)
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+        routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION)
 
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
