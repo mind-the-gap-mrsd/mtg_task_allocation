@@ -131,9 +131,9 @@ def solve_mtsp(agents, goals):
         True,  # True starts cumul to zero
         dimension_name)
     distance_dimension = routing.GetDimensionOrDie(dimension_name)
-    xyz = int(input("Enter coefficient for distance dimension: "))
-    print("Coefficient for distance dimension", xyz)
-    distance_dimension.SetGlobalSpanCostCoefficient( xyz)
+    #xyz = int(input("Enter coefficient for distance dimension: "))
+    #print("Coefficient for distance dimension", xyz)
+    distance_dimension.SetGlobalSpanCostCoefficient(100)
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
