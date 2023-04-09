@@ -32,7 +32,7 @@ def get_distance_matrix(agents, goals):
     #Calculate cost matrix
     cost_mat = np.zeros((len(nodes),len(nodes)))
     #cost_mat = distance.cdist(nodes, nodes, "euclidean")
-    distances = np.load("/home/dsreeni/Sem2/mtg_codebase/mtg_ws/src/mtg_task_allocation/src/helper_pkg/distances.npz")["distances"]
+    distances = np.load("/home/sandy/Desktop/VSCode/mind-the-gap-mrsd/src/mtg_task_allocation/src/helper_pkg/distances.npz")["distances"]
     for i in range (len(nodes)):
         for j in range (len(nodes)):
             #arg = np.concatenate((i, j)).tolist()
@@ -60,7 +60,7 @@ def create_data_model(agents, goals):
 ''' Format MTSP solver's solution to be read by planner'''
 
 def format_solution(data, manager, routing, solution, goals):
-    #print(f'Objective: {solution.ObjectiveValue()}')
+    print(f'Objective: {solution.ObjectiveValue()}')
     max_route_distance = 0
     ta = []
     route_lengths = []
@@ -127,17 +127,23 @@ def solve_mtsp(agents, goals):
     routing.AddDimension(
         transit_callback_index,
         0,  # no slack
-        10,  # vehicle maximum travel distance
-        False,  # True starts cumul to zero
+        100,  # vehicle maximum travel distance
+        True,  # True starts cumul to zero
         dimension_name)
     distance_dimension = routing.GetDimensionOrDie(dimension_name)
-    distance_dimension.SetGlobalSpanCostCoefficient(1000)
+    xyz = int(input("Enter coefficient for distance dimension: "))
+    print("Coefficient for distance dimension", xyz)
+    distance_dimension.SetGlobalSpanCostCoefficient( xyz)
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION)
-
-    # Solve the problem.
+        routing_enums_pb2.FirstSolutionStrategy.AUTOMATIC)
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    search_parameters.time_limit.seconds = 5
+    search_parameters.log_search = True
+    #Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
     
     ta, route_lengths = format_solution(data, manager, routing, solution, goals)
