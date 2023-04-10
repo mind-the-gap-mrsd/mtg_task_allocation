@@ -20,6 +20,12 @@ def geometry_msgs_to_array(agents, goals):
     nodes = np.concatenate((agent_pose, goal_pose), axis = 0)
     return nodes
 
+def nodes_to_map_array(nodes):
+    for i in nodes:
+        i[0] = i[0]/0.05
+        i[1] = 126 - i[1]/0.05
+    return nodes
+
 def get_distance_matrix(agents, goals):
     #Set up problem, convert the mission_start values to arrays
     nodes = geometry_msgs_to_array(agents, goals)
@@ -31,8 +37,10 @@ def get_distance_matrix(agents, goals):
     n_agents = len(agents)
     #Calculate cost matrix
     cost_mat = np.zeros((len(nodes),len(nodes)))
+    nodes = nodes_to_map_array(nodes)
     #cost_mat = distance.cdist(nodes, nodes, "euclidean")
-    distances = np.load("/home/sandy/Desktop/VSCode/mind-the-gap-mrsd/src/mtg_task_allocation/src/helper_pkg/distances.npz")["distances"]
+    path_to_file = "/home/sandy/Desktop/VSCode/mind-the-gap-mrsd/src/mtg_task_allocation/src/helper_pkg/distances.npz"
+    distances = np.load(path_to_file)["distances"]
     for i in range (len(nodes)):
         for j in range (len(nodes)):
             #arg = np.concatenate((i, j)).tolist()
@@ -76,6 +84,7 @@ def format_solution(data, manager, routing, solution, goals):
             index = solution.Value(routing.NextVar(index))
             route_distance += routing.GetArcCostForVehicle(
                 previous_index, index, agent_id)
+            print(route_distance, previous_index, index)
         print(plan_output)
         ta.append(task_list)
         route_lengths.append(route_distance)   
