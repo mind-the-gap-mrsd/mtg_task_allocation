@@ -18,18 +18,20 @@ def geometry_msgs_to_array(agents, goals):
         goal_pose[i, :] = np.asarray([float(goals[i].position.x), float(goals[i].position.y)])
     #Format for  Google OR tools
     nodes = np.concatenate((agent_pose, goal_pose), axis = 0)
+    #print("nodes as geometry", nodes)
     return nodes
 
 def nodes_to_map_array(nodes):
     for i in nodes:
-        i[0] = i[0]/0.05
-        i[1] = 126 - i[1]/0.05
+        i[0] = int(i[0]/0.05)
+        i[1] = int(210 - int(i[1]/0.05))
+    #print("converted nodes: ", nodes)
     return nodes
 
 def get_distance_matrix(agents, goals):
     #Set up problem, convert the mission_start values to arrays
     nodes = geometry_msgs_to_array(agents, goals)
-    print(goals)
+    #print(goals)
     # nodes = np.concatenate((agents, goals), axis = 0)
     #print(nodes)
     #Set up dummy end location
@@ -44,7 +46,8 @@ def get_distance_matrix(agents, goals):
     for i in range (len(nodes)):
         for j in range (len(nodes)):
             #arg = np.concatenate((i, j)).tolist()
-            cost_mat[i, j] = distances[int(nodes[i][0]), int(nodes[i][1]), int(nodes[j][0]), int(nodes[j][1])]
+            #rint(int(nodes[i,0]), int(nodes[i,1]), int(nodes[j,0]), int(nodes[j,1]), "Nodes")
+            cost_mat[i, j] = distances[int(nodes[i,0]), int(nodes[i,1]), int(nodes[j,0]), int(nodes[j,1])]
     #Modify cost matrix such that the distance from the goal as index 0 is equidistant (i.e. does not affect cost)
     cost_mat[0, :] = np.zeros_like(cost_mat[0,:])
     np.fill_diagonal(cost_mat, 0)
@@ -68,7 +71,7 @@ def create_data_model(agents, goals):
 ''' Format MTSP solver's solution to be read by planner'''
 
 def format_solution(data, manager, routing, solution, goals):
-    print(f'Objective: {solution.ObjectiveValue()}')
+    #print(f'Objective: {solution.ObjectiveValue()}')
     max_route_distance = 0
     ta = []
     route_lengths = []
@@ -84,10 +87,11 @@ def format_solution(data, manager, routing, solution, goals):
             index = solution.Value(routing.NextVar(index))
             route_distance += routing.GetArcCostForVehicle(
                 previous_index, index, agent_id)
-            print(route_distance, previous_index, index)
-        print(plan_output)
+            #print(route_distance, "route distance")
+        #print(plan_output)
         ta.append(task_list)
         route_lengths.append(route_distance)   
+        #print(route_lengths)
         max_route_distance = max(route_distance, max_route_distance)
     #ta, route_lengths = get_gap_point(ta, route_lengths, goals)
     return ta, route_lengths #, crossing_point
@@ -126,6 +130,8 @@ def solve_mtsp(agents, goals):
     def distance_callback(from_index, to_index):
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
+        #nodes = nodes_to_map_array([from_node, to_node])
+        #print("Callback", data['distance_matrix'][from_node][to_node])
         return data['distance_matrix'][from_node][to_node]
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
 
@@ -142,16 +148,13 @@ def solve_mtsp(agents, goals):
     distance_dimension = routing.GetDimensionOrDie(dimension_name)
     #xyz = int(input("Enter coefficient for distance dimension: "))
     #print("Coefficient for distance dimension", xyz)
-    distance_dimension.SetGlobalSpanCostCoefficient(100)
+    distance_dimension.SetGlobalSpanCostCoefficient(1000)
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.AUTOMATIC)
-    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    search_parameters.first_solution_strategy = (routing_enums_pb2.FirstSolutionStrategy.AUTOMATIC)
+    search_parameters.local_search_metaheuristic = (routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
     search_parameters.time_limit.seconds = 5
-    search_parameters.log_search = True
+    search_parameters.log_search = False
     #Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
     
