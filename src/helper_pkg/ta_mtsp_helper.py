@@ -41,7 +41,7 @@ def get_distance_matrix(agents, goals):
     cost_mat = np.zeros((len(nodes),len(nodes)))
     nodes = nodes_to_map_array(nodes)
     #cost_mat = distance.cdist(nodes, nodes, "euclidean")
-    path_to_file = "/home/sandy/Desktop/VSCode/mind-the-gap-mrsd/src/mtg_task_allocation/src/helper_pkg/distances.npz"
+    path_to_file = "path_to_distancez.npz"
     distances = np.load(path_to_file)["distances"]
     for i in range (len(nodes)):
         for j in range (len(nodes)):
