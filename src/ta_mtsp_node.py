@@ -59,6 +59,8 @@ def handle_ta_out(req):
         ta.agent_routes.append(agent)
     #ta_output.agent_numbers =  
     print(ta)
+    ta_out_pub = rospy.Publisher('ta_output', ta_outResponse, queue_size=1)
+    ta_out_pub.publish(ta)
     #ta_output.agent_start = agents
     return ta
 
@@ -79,6 +81,7 @@ if __name__ == '__main__':
     print("Initiated TA Node")
     #rospy.Subscriber("/goal_points_set", bool, callback)
     s = rospy.Service("/ta_out", ta_out, handle_ta_out)
+    ta_out_pub = rospy.Publisher('ta_output', ta_outResponse, queue_size=1)
 
     rospy.spin()
     
