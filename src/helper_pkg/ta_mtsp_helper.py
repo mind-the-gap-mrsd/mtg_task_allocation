@@ -41,7 +41,7 @@ def get_distance_matrix(agents, goals):
     cost_mat = np.zeros((len(nodes),len(nodes)))
     nodes = nodes_to_map_array(nodes)
     #cost_mat = distance.cdist(nodes, nodes, "euclidean")
-    path_to_file = "path_to_distancez.npz"
+    path_to_file = "/home/dsreeni/Sem2/mtg_codebase/mtg_ws/src/mtg_task_allocation/src/helper_pkg/distances.npz"
     distances = np.load(path_to_file)["distances"]
     for i in range (len(nodes)):
         for j in range (len(nodes)):
@@ -148,7 +148,7 @@ def solve_mtsp(agents, goals):
     distance_dimension = routing.GetDimensionOrDie(dimension_name)
     #xyz = int(input("Enter coefficient for distance dimension: "))
     #print("Coefficient for distance dimension", xyz)
-    distance_dimension.SetGlobalSpanCostCoefficient(1000)
+    distance_dimension.SetGlobalSpanCostCoefficient(500)
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (routing_enums_pb2.FirstSolutionStrategy.AUTOMATIC)
