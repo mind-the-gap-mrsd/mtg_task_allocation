@@ -7,13 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 #from puzzlebots_ws.src.mtg_mtsp_task_allocator.src.
-from helper_pkg.ta_mtsp_helper import solve_mtsp, geometry_msgs_to_array
+from helper_pkg.ta_mtsp_helper import solve_mtsp, geometry_msgs_to_array, Costmap, get_gap_point, assign_all_tasks
 
-#########
-# def callback(flag):
-#     if flag == 1:
-#         s = rospy.Service("/ta_out", ta_out, handle_ta_out)
-#########
 def handle_ta_out(req):
     print("Handling Service")
     req = 'ta'
@@ -26,41 +21,37 @@ def handle_ta_out(req):
     
     #total_task_list = agents + goals
     # cost_matrix = np.zeros(len(agents), len(goals))
-    nodes = geometry_msgs_to_array(agents, goals)
-
-
-    ###############################################
+    agents, goals = geometry_msgs_to_array(agents, goals)
+    nodes = np.concatenate((agents, goals), axis = 0)
     ### DUMMY AGENT AND GOAL LOCATIONS ###
     # agents = np.asarray([[1,3], [3, 5], [2,3], [1,1]])
     # goals = np.asarray([[1,2],[3,4],[2,4],[3,5], [2,3],[4,5],[3,5]])
     # nodes = np.concatenate((agents, goals), axis = 0)
     # print(nodes)
-    ##########################################
+    #costmap = Costmap()
+    ta = assign_all_tasks(agents, goals)
+    #Format and send out response
+    taMsg = ta_outResponse()
 
-    allocated_tasks = solve_mtsp(agents, goals)
-    print(allocated_tasks)
-    ta = ta_outResponse()
-    #ta_output.agent_goals = agent_tasks_lists
-    for i in range(len(allocated_tasks)):
+    for i in range(len(ta)):
         agent = agent_route()
-        agent.agent_id = i 
+        agent.agent_id = i
         agent.goal_list = []
-        for j in range(len(allocated_tasks[i])):
-            task_idx = allocated_tasks[i][j]
-            task_object = task()
-            #ta.single_agent_route.goal_list.append([task])
-            task_object.x, task_object.y = nodes[task_idx-1,:].tolist()
-            
+        for j in range(len(ta)):
+            task_idx = ta[i][j]
+            task = task()
+            task.x, task.y = nodes[task_idx-1,:].tolist()
             if j>0:
-                task_object.index = task_idx - len(agents)
+                task.index = task_idx - len(agents)
+            #How to
             else:
-                task_object.index = 0 #Starting task
+                task.index = 0 #Starting task
             agent.goal_list.append(task_object)
-        ta.agent_routes.append(agent)
+        taMsg.agent_routes.append(agent)
     #ta_output.agent_numbers =  
-    print(ta)
+    print(taMsg)
     ta_out_pub = rospy.Publisher('ta_output', ta_outResponse, queue_size=1)
-    ta_out_pub.publish(ta)
+    ta_out_pub.publish(taMsg)
     #ta_output.agent_start = agents
     return ta
 
