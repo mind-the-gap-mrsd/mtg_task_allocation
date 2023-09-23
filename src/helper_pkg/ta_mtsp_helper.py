@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 import cv2
-#Note - add get_gap_points to allocate gap crossing task!
+
 class Costmap():
     ''' Initiates a costmap class with information about gap location. Splits and stores the tasks based on location wrt gap.'''
     def __init__(self, agents, goals):
@@ -16,7 +16,6 @@ class Costmap():
         self.goals = goals
         #self.find_vertices()
         self.split_tasks()
-
 
     def get_gap_coords(self):
         #read map
@@ -83,8 +82,6 @@ class Costmap():
     #Reorder vertices accordingly so vertices[1]-vertices[2] is the first edge and 3 to 4 is second edge 
     #Consider how to add gap width and see where the agents reach        
 
-
-
 def geometry_msgs_to_array(agents, goals): #Converts geometry messages to array for mtsp solver
     n_agents = len(agents)
     n_goals = len(goals)
@@ -97,9 +94,6 @@ def geometry_msgs_to_array(agents, goals): #Converts geometry messages to array 
         agent_pose[i, :] = np.asarray([float(agents[i].position.x), float(agents[i].position.y)])
     for i in range (0, n_goals):
         goal_pose[i, :] = np.asarray([float(goals[i].position.x), float(goals[i].position.y)])
-    #Format for  Google OR tools
-    #nodes = np.concatenate((agent_pose, goal_pose), axis = 0)
-    #print("nodes as geometry", nodes)
     return agents, goals
 
 def img_to_map(nodes): #Makes sure everything is in map coordinates
@@ -124,8 +118,6 @@ def get_distance_matrix(agents, goals):
     distances = np.load(path_to_file)["distances"]
     for i in range (len(nodes)):
         for j in range (len(nodes)):
-            #arg = np.concatenate((i, j)).tolist()
-            #rint(int(nodes[i,0]), int(nodes[i,1]), int(nodes[j,0]), int(nodes[j,1]), "Nodes")
             cost_mat[i, j] = distances[int(nodes[i,0]), int(nodes[i,1]), int(nodes[j,0]), int(nodes[j,1])]
     #Modify cost matrix such that the distance from the goal as index 0 is equidistant (i.e. does not affect cost)
     cost_mat[0, :] = np.zeros_like(cost_mat[0,:])
@@ -245,9 +237,6 @@ def solve_mtsp(agents, goals):
     solution = routing.SolveWithParameters(search_parameters)
     
     ta, route_lengths = format_solution(data, manager, routing, solution, goals)
-    print(route_lengths)
-    print(ta)
-    print(len(ta))
     return ta, route_lengths
 
 def assign_all_tasks(agents, goals):
@@ -270,10 +259,4 @@ def assign_all_tasks(agents, goals):
             taGap[agentIdx].append(task)
     print(taGap)
 
-if __name__=="__main__":
-    agents = np.asarray([[1,3], [3, 5], [2,3], [1,1]])
-    goals = np.asarray([[1,2],[3,4],[2,4],[3,5], [42,38],[55,35],[73,15]])
-    costmap = Costmap(agents, goals)
-    costmap.split_tasks()
-    assign_all_tasks(agents, goals)
     #How to loop through? First, tasks LHS
