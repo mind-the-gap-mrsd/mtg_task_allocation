@@ -33,8 +33,8 @@ def handle_ta_out(req):
     # costmap = Costmap()
     ta, reordered_goals, goal_map_index, crossing_agents, crossing_pairing, costmap = assign_all_tasks(agents, goals)
     nodes = np.concatenate((agents, reordered_goals), axis = 0)
-    print(ta)
-    print("Goal map index: ", goal_map_index)
+    # print(ta)
+    # print("Goal map index: ", goal_map_index)
     #Format and send out response
     taMsg = ta_outResponse()
 
@@ -66,10 +66,11 @@ def handle_ta_out(req):
     
     taMsg.gap_centroid_x = costmap.centroid_world_coords[0,0]
     taMsg.gap_centroid_y = costmap.centroid_world_coords[0,1] 
-    print("Final message: ", taMsg) 
+    # print("Final message: ", taMsg) 
     ta_out_pub = rospy.Publisher('ta_output', ta_outResponse, queue_size=1)
     ta_out_pub.publish(taMsg)
     #ta_output.agent_start = agents
+    # TODO: Add gap orientation to output message -> radians of yaw in map frame
     return taMsg
 
 if __name__ == '__main__':

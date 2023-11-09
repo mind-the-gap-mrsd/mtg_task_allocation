@@ -134,7 +134,7 @@ class Costmap():
 
         for y in range(4, height-3, 1):
             for x in range(8, width-8, 1):
-                window = self.map[y-4:y+4, x-8:x+8]
+                window = self.map[y-4:y+4, x-10:x+10]
                 original_point = self.unrotate_point(np.array([x,y]))
                 if(np.any(window == 0)):
                     self.free_space_map[int(original_point[1]),int(original_point[0])] = 0
@@ -249,7 +249,7 @@ def format_solution(data, manager, routing, solution, goals):
     for agent_id in range(data['num_vehicles']):
         task_list = []
         index = routing.Start(agent_id)
-        print("agent id: ", index)
+        # print("agent id: ", index)
         plan_output = 'Route for vehicle {}:\n'.format(agent_id)
         route_distance = 0
         while not routing.IsEnd(index):
@@ -301,7 +301,8 @@ def get_gap_point(ta, route_lengths, costmap):
     for task_list_index in range (len(ta)):
         robot_pose[task_list_index,:] = goals[ta[task_list_index][-1]-(len(ta)+1), :] #robot pose after it has reached points of interest / pose of final task in robots task list
     
-    cost_matrix_unsorted = distance.cdist(boundary, robot_pose)
+    free_space_points = costmap.pixel_to_world(np.array(list(costmap.free_space_dict.keys())))
+    cost_matrix_unsorted = distance.cdist(free_space_points, robot_pose, 'euclidean')/0.05
 
     for i in range (len(ta)):
         cost_matrix_unsorted[:, i] += route_lengths[i] #Include agent route length in metric for cost to crossing point
@@ -309,23 +310,26 @@ def get_gap_point(ta, route_lengths, costmap):
     cost_matrix_sorted = np.sort(cost_matrix_unsorted)
     cost_matrix_sorted = cost_matrix_sorted[:, :3] #Discard final column
     crossing_point_idx = np.argmin(np.sum(cost_matrix_sorted, axis  = 1))
-    crossing_point = boundary[crossing_point_idx]
+    crossing_point = free_space_points[crossing_point_idx]
+    print("Free space: ", free_space_points)
+    print("Crossing point: ", crossing_point)
 
-    free_space_lhs = np.array(list(costmap.free_space_dict.keys()))
-    closest_free_matrix = distance.cdist(free_space_lhs, np.array([crossing_point]))
-    closest_free_matrix = np.sort(closest_free_matrix)
-    closest_free_matrix = closest_free_matrix[:,:3]
-    closest_point_idx = np.argmin(np.sum(closest_free_matrix, axis=1))
-    crossing_point = free_space_lhs[closest_point_idx]
+    # free_space_lhs = np.array(list(costmap.free_space_dict.keys()))
+    # closest_free_matrix = distance.cdist(free_space_lhs, np.array([crossing_point]))
+    # closest_free_matrix = np.sort(closest_free_matrix)
+    # closest_free_matrix = closest_free_matrix[:,:3]
+    # closest_point_idx = np.argmin(np.sum(closest_free_matrix, axis=1))
+    # crossing_point = free_space_lhs[closest_point_idx]
 
-    opposite_point = costmap.free_space_dict[tuple(crossing_point)]
-    crossing_point = costmap.pixel_to_world(np.array([crossing_point])).flatten()
+    opposite_point = costmap.free_space_dict[tuple(world_to_pixel(np.array([crossing_point]), costmap).flatten().tolist())]
+    print('lol')
+    # crossing_point = costmap.pixel_to_world(np.array([crossing_point])).flatten()
     opposite_point = costmap.pixel_to_world(np.array([opposite_point])).flatten()
     
 
     crossing_agents = np.argsort(cost_matrix_unsorted[crossing_point_idx, :])[:3]
     crossing_task_pairing = create_crossing_tasks(robot_pose, crossing_agents, crossing_point, opposite_point, costmap)
-    print("Pairing: ", crossing_task_pairing)
+    # print("Pairing: ", crossing_task_pairing)
     for agent in crossing_agents: 
         ta[agent].append(100)
         ta[agent].append(101)
@@ -384,7 +388,7 @@ def assign_all_tasks(agents, goals):
     num_lhs = costmap.tasks_lhs.shape[0]
     goal_map_index = costmap.goal_map_index
     taLHS, route_lengths = solve_mtsp(agents, costmap.tasks_lhs, costmap)
-    print(taLHS)
+    # print(taLHS)
     taGap, crossing_point, crossing_agents, crossing_pairing = get_gap_point(taLHS, route_lengths, costmap)
     crossing_agent_pose = np.zeros((len(crossing_agents),2))
     crossing_points_pose = np.linspace(-len(crossing_agents)/2, len(crossing_agents)/2, len(crossing_agents))
@@ -393,7 +397,7 @@ def assign_all_tasks(agents, goals):
     
     # print("Task Allocation part 1: ", taGap)
     taRHS, __ = solve_mtsp(crossing_agent_pose, costmap.tasks_rhs, costmap)
-    print(taRHS)
+    # print(taRHS)
     #Format RHS tasks to be readable by mapping to actual robot index
     for taskListIdx in range(len(taRHS)):
         for task in taRHS[taskListIdx][1:]:
