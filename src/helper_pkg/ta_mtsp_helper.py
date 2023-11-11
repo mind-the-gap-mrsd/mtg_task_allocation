@@ -10,6 +10,7 @@ import copy
 from typing import Union, List
 from shapely import LineString, Point
 from collections import OrderedDict
+from scipy.optimize import linear_sum_assignment
 
 class Costmap():
     ''' Initiates a costmap class with information about gap location. Splits and stores the tasks based on location wrt gap.'''
@@ -132,8 +133,8 @@ class Costmap():
         free_space_rhs = []
         free_space_dict = dict()
 
-        for y in range(4, height-3, 1):
-            for x in range(8, width-8, 1):
+        for y in range(4, height-4, 1):
+            for x in range(10, width-10, 1):
                 window = self.map[y-4:y+4, x-10:x+10]
                 original_point = self.unrotate_point(np.array([x,y]))
                 if(np.any(window == 0)):
@@ -153,6 +154,7 @@ class Costmap():
         for point in free_space_lhs:
             closest_rhs_point = self.find_closest_point(np.array(point), np.array(free_space_rhs))
             diff_vector = np.array(closest_rhs_point) - np.array(point)
+            diff_vector /= np.linalg.norm(diff_vector)
             gap_perp = np.array([-self.gap_orientation[1], self.gap_orientation[0]])
             if(np.abs(diff_vector.T@gap_perp) > 1e-2):
                 continue
@@ -201,30 +203,20 @@ def world_to_pixel(world_points: np.ndarray, costmap: Costmap) -> np.ndarray:
 
 def get_distance_matrix(agents, goals, costmap: Costmap):
     # Set up problem, convert the mission_start values to arrays
-    # nodes = geometry_msgs_to_array(agents, goals)
     nodes = np.concatenate((agents, goals), axis = 0)
-    # Convert nodes to pixel coordinates
-    #Set up dummy end location
     nodes = np.concatenate((np.asarray([[1,1]]), nodes), axis = 0) 
-    # nodes = world_to_pixel(nodes, costmap)
     n_agents = len(agents)
     #Calculate cost matrix
     cost_mat = np.zeros((len(nodes),len(nodes)))
-    # nodes = img_to_map(nodes)
-    #print("nodes in mapp arr", nodes)
-    # Dividing by graphj resolution to get distance in graph units
     cost_mat = distance.cdist(nodes, nodes, "euclidean")/0.05
     # path_to_file = "/home/ros_ws/src/mtg_task_allocation/src/helper_pkg/distances.npz" #rospy.get_param(distances_file) #"/home/dsreeni/Sem2/mtg_codebase/mtg_ws/src/mtg_task_allocation/src/helper_pkg/distances.npz" #Make this a rosparam in some launch file
     # distances = np.load(path_to_file)["distances"]
     # for i in range (len(nodes)):
     #     for j in range (len(nodes)):
     #         cost_mat[i, j] = distances[int(nodes[i,0]), int(nodes[i,1]), int(nodes[j,0]), int(nodes[j,1])]
-    # print("Cost matrix: ", cost_mat)
-    #Modify cost matrix such that the distance from the goal as index 0 is equidistant (i.e. does not affect cost)
     cost_mat[0, :] = np.zeros_like(cost_mat[0,:])
     np.fill_diagonal(cost_mat, 0)
     cost_mat[:,0] = np.zeros_like(cost_mat[:,0])
-    # print(cost_mat)
 
     return cost_mat.tolist(), n_agents
 
@@ -275,19 +267,16 @@ def create_crossing_tasks(robot_poses: np.ndarray, crossing_agents: np.ndarray, 
     '''
     num_of_agents = len(crossing_agents)
     shifting_directions = np.linspace(-len(crossing_agents)/2, len(crossing_agents)/2, len(crossing_agents))
-    shifting_magnitude = 0.3 # TODO: change from arbitrary distance to some measured quantity
+    shifting_magnitude = 0.27 # TODO: change from arbitrary distance to some measured quantity
     np_gap_orientation = costmap.gap_orientation
     shifting_delta = np.multiply((shifting_directions*shifting_magnitude).reshape(-1,1), np_gap_orientation)
     np_crossing_points = shifting_delta + np.array(crossing_point)
     robot_locations = robot_poses[crossing_agents]
     dist_matrix = distance.cdist(robot_locations, np_crossing_points)
     pairing = OrderedDict()
-    while(len(pairing) < num_of_agents):
-        min_index = np.unravel_index(np.argmin(dist_matrix), dist_matrix.shape)
-        pairing[crossing_agents[min_index[0]]] = [np_crossing_points[min_index[1]].tolist(), (opposite_point + (min_index[1]-1)*shifting_magnitude*costmap.gap_orientation).tolist()]
-        dist_matrix[min_index[0]] = 1e9*np.ones(dist_matrix[0].shape[0])
-        dist_matrix[:,min_index[1]] = 1e9*np.ones(dist_matrix[0].shape[0])
-
+    output_pairing_hungarian = list(zip(linear_sum_assignment(dist_matrix)))
+    for pair in output_pairing_hungarian:
+        pairing[crossing_agents[pair[0]]] = [np_crossing_points[pair[1]].tolist(), (opposite_point + (pair[1]-1)*shifting_magnitude*costmap.gap_orientation).tolist()]
 
     return pairing
 
@@ -311,19 +300,9 @@ def get_gap_point(ta, route_lengths, costmap):
     cost_matrix_sorted = cost_matrix_sorted[:, :3] #Discard final column
     crossing_point_idx = np.argmin(np.sum(cost_matrix_sorted, axis  = 1))
     crossing_point = free_space_points[crossing_point_idx]
-    print("Free space: ", free_space_points)
-    print("Crossing point: ", crossing_point)
-
-    # free_space_lhs = np.array(list(costmap.free_space_dict.keys()))
-    # closest_free_matrix = distance.cdist(free_space_lhs, np.array([crossing_point]))
-    # closest_free_matrix = np.sort(closest_free_matrix)
-    # closest_free_matrix = closest_free_matrix[:,:3]
-    # closest_point_idx = np.argmin(np.sum(closest_free_matrix, axis=1))
-    # crossing_point = free_space_lhs[closest_point_idx]
 
     opposite_point = costmap.free_space_dict[tuple(world_to_pixel(np.array([crossing_point]), costmap).flatten().tolist())]
-    print('lol')
-    # crossing_point = costmap.pixel_to_world(np.array([crossing_point])).flatten()
+
     opposite_point = costmap.pixel_to_world(np.array([opposite_point])).flatten()
     
 
@@ -393,7 +372,7 @@ def assign_all_tasks(agents, goals):
     crossing_agent_pose = np.zeros((len(crossing_agents),2))
     crossing_points_pose = np.linspace(-len(crossing_agents)/2, len(crossing_agents)/2, len(crossing_agents))
     for num in range(len(crossing_agents)):
-        crossing_agent_pose[num] = crossing_point + crossing_points_pose[num]*0.25*costmap.gap_orientation
+        crossing_agent_pose[num] = crossing_point + crossing_points_pose[num]*0.27*costmap.gap_orientation
     
     # print("Task Allocation part 1: ", taGap)
     taRHS, __ = solve_mtsp(crossing_agent_pose, costmap.tasks_rhs, costmap)
