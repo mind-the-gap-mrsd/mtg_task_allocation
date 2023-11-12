@@ -67,7 +67,7 @@ class Costmap():
         centroid_of_agents[0] /= len(self.agents)
         centroid_of_agents[1] /= len(self.agents)
 
-        self.gap_orientation_agents = (self.centroid_of_gap[0] - centroid_of_agents[0], self.centroid_of_gap[1] - centroid_of_agents[1])
+        self.gap_orientation_agents = (self.centroid_world_coords[0] - centroid_of_agents[0], self.centroid_world_coords[1] - centroid_of_agents[1])
         
         # Find bounding box of gap and get orientation
         self.find_gap_orientation()
@@ -82,6 +82,9 @@ class Costmap():
         self.gap_orientation = self.gap_orientation.astype(np.float64) / np.linalg.norm(self.gap_orientation)
         if(self.gap_orientation.T@self.gap_orientation_agents < 0):
             self.gap_orientation *= -1
+            self.swap_lhs_rhs = True
+        else:
+            self.swap_lhs_rhs = False
         
         # print("Obtained gap orientation: ", self.gap_orientation)
         
@@ -124,6 +127,10 @@ class Costmap():
         # Rotate map so that gap is vertical
         height, width = self.binary_map.shape
         angle = -1*np.arctan2(self.gap_orientation[1], self.gap_orientation[0])
+        if(angle > np.pi/2):
+            angle -= np.pi
+        elif(angle < -np.pi/2):
+            angle += np.pi
         self.rotmatrix= cv2.getRotationMatrix2D((width/2, height/2), (180/np.pi)*angle, 1)
         self.rotated_map = cv2.warpAffine(self.map, self.rotmatrix, (width, height), flags=cv2.INTER_NEAREST)
         self.rotmatrix = np.vstack([self.rotmatrix, np.array([0, 0, 1])])
@@ -135,7 +142,7 @@ class Costmap():
 
         for y in range(4, height-4, 1):
             for x in range(10, width-10, 1):
-                window = self.map[y-4:y+4, x-10:x+10]
+                window = self.rotated_map[y-4:y+4, x-10:x+10]
                 original_point = self.unrotate_point(np.array([x,y]))
                 if(np.any(window == 0)):
                     self.free_space_map[int(original_point[1]),int(original_point[0])] = 0
@@ -160,6 +167,12 @@ class Costmap():
                 continue
             else:
                 free_space_dict[tuple(point)] = closest_rhs_point
+        
+        # if swap_lhs_rhs is True, swap the keys with the value in the free_space_dict
+        if self.swap_lhs_rhs:
+            free_space_dict = {v: k for k, v in free_space_dict.items()}
+        
+
         
         return free_space_dict
 
