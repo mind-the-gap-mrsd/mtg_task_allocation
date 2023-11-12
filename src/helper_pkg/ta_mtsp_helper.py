@@ -67,7 +67,7 @@ class Costmap():
         centroid_of_agents[0] /= len(self.agents)
         centroid_of_agents[1] /= len(self.agents)
 
-        self.gap_orientation_agents = (self.centroid_world_coords[0] - centroid_of_agents[0], self.centroid_world_coords[1] - centroid_of_agents[1])
+        self.gap_orientation_agents = (self.centroid_world_coords[0,0] - centroid_of_agents[0], self.centroid_world_coords[0,1] - centroid_of_agents[1])
         
         # Find bounding box of gap and get orientation
         self.find_gap_orientation()
@@ -166,7 +166,7 @@ class Costmap():
             if(np.abs(diff_vector.T@gap_perp) > 1e-2):
                 continue
             else:
-                free_space_dict[tuple(point)] = closest_rhs_point
+                free_space_dict[tuple(point)] = tuple(closest_rhs_point.tolist())
         
         # if swap_lhs_rhs is True, swap the keys with the value in the free_space_dict
         if self.swap_lhs_rhs:
@@ -288,7 +288,7 @@ def create_crossing_tasks(robot_poses: np.ndarray, crossing_agents: np.ndarray, 
     dist_matrix = distance.cdist(robot_locations, np_crossing_points)
     pairing = OrderedDict()
     row_ind, col_ind = linear_sum_assignment(dist_matrix)
-    for i in row_ind.shape[0]:
+    for i in range(row_ind.shape[0]):
         pairing[crossing_agents[row_ind[i]]] = [np_crossing_points[col_ind[i]].tolist(), (opposite_point + (col_ind[i]-1)*shifting_magnitude*costmap.gap_orientation).tolist()]
 
     return pairing

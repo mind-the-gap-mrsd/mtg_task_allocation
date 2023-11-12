@@ -59,7 +59,7 @@ def handle_ta_out(req):
     
     taMsg.gap_centroid_x = costmap.centroid_world_coords[0,0]
     taMsg.gap_centroid_y = costmap.centroid_world_coords[0,1] 
-    ta_out_pub.gap_orientation = np.arctan2(costmap.gap_orientation[1], costmap.gap_orientation[0]) 
+    # taMsg.gap_orientation = np.arctan2(costmap.gap_orientation[1], costmap.gap_orientation[0]) 
     ta_out_pub = rospy.Publisher('ta_output', ta_outResponse, queue_size=1)
     ta_out_pub.publish(taMsg)
     
