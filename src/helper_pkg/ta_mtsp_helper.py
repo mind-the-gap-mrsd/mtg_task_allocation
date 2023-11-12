@@ -287,9 +287,9 @@ def create_crossing_tasks(robot_poses: np.ndarray, crossing_agents: np.ndarray, 
     robot_locations = robot_poses[crossing_agents]
     dist_matrix = distance.cdist(robot_locations, np_crossing_points)
     pairing = OrderedDict()
-    output_pairing_hungarian = list(zip(linear_sum_assignment(dist_matrix)))
-    for pair in output_pairing_hungarian:
-        pairing[crossing_agents[pair[0]]] = [np_crossing_points[pair[1]].tolist(), (opposite_point + (pair[1]-1)*shifting_magnitude*costmap.gap_orientation).tolist()]
+    row_ind, col_ind = linear_sum_assignment(dist_matrix)
+    for i in row_ind.shape[0]:
+        pairing[crossing_agents[row_ind[i]]] = [np_crossing_points[col_ind[i]].tolist(), (opposite_point + (col_ind[i]-1)*shifting_magnitude*costmap.gap_orientation).tolist()]
 
     return pairing
 
