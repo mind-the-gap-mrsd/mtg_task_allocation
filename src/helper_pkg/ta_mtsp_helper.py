@@ -67,7 +67,7 @@ class Costmap():
         centroid_of_agents[0] /= len(self.agents)
         centroid_of_agents[1] /= len(self.agents)
 
-        self.gap_orientation_agents = (self.centroid_world_coords[0,0] - centroid_of_agents[0], self.centroid_world_coords[0,1] - centroid_of_agents[1])
+        self.gap_orientation_agents = np.array((self.centroid_world_coords[0,0] - centroid_of_agents[0], self.centroid_world_coords[0,1] - centroid_of_agents[1]))
         
         # Find bounding box of gap and get orientation
         self.find_gap_orientation()
@@ -80,8 +80,12 @@ class Costmap():
         index = np.argmin(np.linalg.norm(bounding_box - np.roll(bounding_box, 1, axis = 0), axis = 1))
         self.gap_orientation = bounding_box[index] - np.roll(bounding_box, 1, axis=0)[index]
         self.gap_orientation = self.gap_orientation.astype(np.float64) / np.linalg.norm(self.gap_orientation)
+        print(self.gap_orientation.T@self.gap_orientation_agents)
+        print(self.gap_orientation)
         if(self.gap_orientation.T@self.gap_orientation_agents < 0):
             self.gap_orientation *= -1
+        
+        if(np.abs(np.arctan2(self.gap_orientation[1], self.gap_orientation[0])) > np.pi/2 ):
             self.swap_lhs_rhs = True
         else:
             self.swap_lhs_rhs = False
@@ -110,6 +114,8 @@ class Costmap():
 
         self.tasks_lhs = np.array(tasks_lhs)
         self.tasks_rhs = np.array(tasks_rhs)
+        print("First: ", tasks_lhs)
+        print("Second: ", tasks_rhs)
         self.goal_map_index = np.concatenate((self.index_lhs, self.index_rhs))
         self.goals = np.concatenate((tasks_lhs, tasks_rhs), axis = 0)
         
@@ -141,8 +147,8 @@ class Costmap():
         free_space_dict = dict()
 
         for y in range(4, height-4, 1):
-            for x in range(10, width-10, 1):
-                window = self.rotated_map[y-4:y+4, x-10:x+10]
+            for x in range(11, width-11, 1):
+                window = self.rotated_map[y-4:y+4, x-11:x+11]
                 original_point = self.unrotate_point(np.array([x,y]))
                 if(np.any(window == 0)):
                     self.free_space_map[int(original_point[1]),int(original_point[0])] = 0
@@ -169,11 +175,10 @@ class Costmap():
                 free_space_dict[tuple(point)] = tuple(closest_rhs_point.tolist())
         
         # if swap_lhs_rhs is True, swap the keys with the value in the free_space_dict
+        print(self.swap_lhs_rhs)
         if self.swap_lhs_rhs:
             free_space_dict = {v: k for k, v in free_space_dict.items()}
-        
-
-        
+        print(free_space_dict)
         return free_space_dict
 
     def unrotate_point(self,point: np.ndarray) -> np.ndarray:
@@ -279,9 +284,9 @@ def create_crossing_tasks(robot_poses: np.ndarray, crossing_agents: np.ndarray, 
     centered about crossing point to the n crossing agents and create pseudo-goals for it
     '''
     num_of_agents = len(crossing_agents)
-    shifting_directions = np.linspace(-len(crossing_agents)/2, len(crossing_agents)/2, len(crossing_agents))
-    shifting_magnitude = 0.27 # TODO: change from arbitrary distance to some measured quantity
     np_gap_orientation = costmap.gap_orientation
+    shifting_directions = np.linspace(-len(crossing_agents)/2, len(crossing_agents)/2, len(crossing_agents)) - 0.15
+    shifting_magnitude = 0.25 # TODO: change from arbitrary distance to some measured quantity
     shifting_delta = np.multiply((shifting_directions*shifting_magnitude).reshape(-1,1), np_gap_orientation)
     np_crossing_points = shifting_delta + np.array(crossing_point)
     robot_locations = robot_poses[crossing_agents]
@@ -318,6 +323,8 @@ def get_gap_point(ta, route_lengths, costmap):
 
     opposite_point = costmap.pixel_to_world(np.array([opposite_point])).flatten()
     
+    # print("Crossing point: ", crossing_point)
+    # print("Opposite point: ", opposite_point)
 
     crossing_agents = np.argsort(cost_matrix_unsorted[crossing_point_idx, :])[:3]
     crossing_task_pairing = create_crossing_tasks(robot_pose, crossing_agents, crossing_point, opposite_point, costmap)
@@ -385,7 +392,7 @@ def assign_all_tasks(agents, goals):
     crossing_agent_pose = np.zeros((len(crossing_agents),2))
     crossing_points_pose = np.linspace(-len(crossing_agents)/2, len(crossing_agents)/2, len(crossing_agents))
     for num in range(len(crossing_agents)):
-        crossing_agent_pose[num] = crossing_point + crossing_points_pose[num]*0.27*costmap.gap_orientation
+        crossing_agent_pose[num] = crossing_point + crossing_points_pose[num]*0.25*costmap.gap_orientation
     
     # print("Task Allocation part 1: ", taGap)
     taRHS, __ = solve_mtsp(crossing_agent_pose, costmap.tasks_rhs, costmap)
