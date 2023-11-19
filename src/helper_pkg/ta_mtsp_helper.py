@@ -121,15 +121,16 @@ def solve_mtsp(agents, goals):
         transit_callback_index,
         0,  # no slack
         100,  # vehicle maximum travel distance
-        True,  # start cumul to zero
+        False,  # start cumul to zero
         dimension_name)
-    #distance_dimension = routing.GetDimensionOrDie(dimension_name)
-    #distance_dimension.SetGlobalSpanCostCoefficient(100)
+    distance_dimension = routing.GetDimensionOrDie(dimension_name)
+    distance_dimension.SetGlobalSpanCostCoefficient(1000)
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
-
+        routing_enums_pb2.FirstSolutionStrategy.AUTOMATIC)
+    search_parameters.local_search_metaheuristic = (routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    search_parameters.time_limit.seconds = 5
     # Solve the problem.
     solution = routing.SolveWithParameters(search_parameters)
     
@@ -138,3 +139,4 @@ def solve_mtsp(agents, goals):
     print(ta)
     print(len(ta))
     return ta
+
