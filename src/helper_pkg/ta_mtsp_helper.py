@@ -26,7 +26,7 @@ class Costmap():
             3. split tasks by LHS and RHS of gap
         '''
 
-        self.map_file = "/home/ros_ws/src/mtg_sim_baseline/worlds/stage_config/maps/fvd_variable_gap_map.png"
+        self.map_file = "/home/ros_ws/src/mtg_sim_baseline/worlds/stage_config/maps/fvd_variable_gap_map_dilated.png"
         #"/home/ros_ws/src/mtg_task_allocation/map/map_with_gap_no_obs.png" #rospy.get_param(map_file)
         self.agents = agents
         self.goals = goals
