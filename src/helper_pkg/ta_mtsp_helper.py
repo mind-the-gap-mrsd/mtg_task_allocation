@@ -26,7 +26,8 @@ class Costmap():
             3. split tasks by LHS and RHS of gap
         '''
 
-        self.map_file = "/home/ros_ws/src/mtg_task_allocation/map/map_with_gap_no_obs.png" #rospy.get_param(map_file)
+        self.map_file = "/home/ros_ws/src/mtg_sim_baseline/worlds/stage_config/maps/fvd_variable_gap_map.png"
+        #"/home/ros_ws/src/mtg_task_allocation/map/map_with_gap_no_obs.png" #rospy.get_param(map_file)
         self.agents = agents
         self.goals = goals
         self.get_gap_coords()
@@ -44,6 +45,7 @@ class Costmap():
         3. Find contours (cv2.findContours))
         4. Find rotated bounding box (cv2.minAreaRect)
         5. Find centroid and orientation of gap
+        6. Find length of gap to find agents needed to cross it
         '''
         self.map = cv2.imread(self.map_file)
         
@@ -120,7 +122,6 @@ class Costmap():
         self.goals = np.concatenate((tasks_lhs, tasks_rhs), axis = 0)
         
         
-    
     def find_free_space(self, num_of_crossing_agents: int = 3) -> dict:
         ''' Finds the free space for coupling/decoupling in the map
          
@@ -145,40 +146,55 @@ class Costmap():
         free_space_lhs = []
         free_space_rhs = []
         free_space_dict = dict()
-
-        for y in range(4, height-4, 1):
-            for x in range(11, width-11, 1):
-                window = self.rotated_map[y-4:y+4, x-11:x+11]
+        num_of_crossing_agents_dict = dict() 
+        for y in range(height):
+            for x in range(width):
                 original_point = self.unrotate_point(np.array([x,y]))
-                if(np.any(window == 0)):
-                    self.free_space_map[int(original_point[1]),int(original_point[0])] = 0
-                elif(np.any(window == 127)):
-                    self.free_space_map[int(original_point[1]),int(original_point[0])] = 127
-                    prev_point = self.unrotate_point(np.array([x-1,y]))
-                    if(self.free_space_map[int(prev_point[1]),int(prev_point[0]), 0] == 255):
+                prev_point = self.unrotate_point(np.array([x-1,y]))
+                if(self.map[int(prev_point[1]),int(prev_point[0]), 0] == 255) and (self.map[int(original_point[1]),int(original_point[0]), 0] == 127):
                         free_space_lhs.append(prev_point)
-                else:
-                    self.free_space_map[int(original_point[1]),int(original_point[0])] = 255
-                    prev_point = self.unrotate_point(np.array([x-1,y]))
-                    if(self.free_space_map[int(prev_point[1]),int(prev_point[0]), 0] == 127):
+                        
+                elif(self.map[int(prev_point[1]),int(prev_point[0]), 0] == 127) and (self.map[int(original_point[1]),int(original_point[0]), 0] == 255):
                         free_space_rhs.append(original_point)
-        plt.imshow(self.free_space_map)
-        plt.show()
+                        
+        #free_space_rhs = self.find_actual_rhs(free_space_rhs, free_space_rhs)
+        # plt.imshow(self.free_space_map)
+        # plt.show()
         for point in free_space_lhs:
-            closest_rhs_point = self.find_closest_point(np.array(point), np.array(free_space_rhs))
-            diff_vector = np.array(closest_rhs_point) - np.array(point)
-            diff_vector /= np.linalg.norm(diff_vector)
-            gap_perp = np.array([-self.gap_orientation[1], self.gap_orientation[0]])
-            if(np.abs(diff_vector.T@gap_perp) > 1e-2):
-                continue
+            two_agents = False
+            num_agents_required = 3
+            closest_rhs_point, distance_to_closest_point = self.find_closest_point(np.array(point), np.array(free_space_rhs))
+            print("closest point, point, distance", point, closest_rhs_point, distance_to_closest_point)
+            #if prev difference is > 4 then wait for 4 y-steps
+            if distance_to_closest_point <= 4: #9 being distance for 2 agents
+                two_agents = True
+                num_agents_required =2
+            x_range = 2*num_agents_required + 5
+            window_lhs = self.map[int(point[1])-2:int(point[1])+2, int(point[0])-x_range:int(point[0]), 0]
+            #print("Window:", window_lhs)
+            window_rhs = self.map[int(closest_rhs_point[1])-2:int(closest_rhs_point[1])+2, int(closest_rhs_point[0]):int(closest_rhs_point[1])+x_range, 0]
+            if np.any(window_lhs == 0) or np.any(window_rhs == 0):
+                print("Discarded point due to obstacle", point, closest_rhs_point)
+            # diff_vector = np.array(closest_rhs_point) - np.array(point)
+            # diff_vector /= np.linalg.norm(diff_vector)
+            # gap_perp = np.array([-self.gap_orientation[1], self.gap_orientation[0]])
+            # if(np.abs(diff_vector.T@gap_perp) > 1e-2):
+            #     continue
             else:
                 free_space_dict[tuple(point)] = tuple(closest_rhs_point.tolist())
-        
-        # if swap_lhs_rhs is True, swap the keys with the value in the free_space_dict
-        print(self.swap_lhs_rhs)
-        if self.swap_lhs_rhs:
-            free_space_dict = {v: k for k, v in free_space_dict.items()}
+                num_of_crossing_agents_dict[tuple(point)] = two_agents
+        print(num_of_crossing_agents_dict)
         print(free_space_dict)
+        # if swap_lhs_rhs is True, swap the keys with the value in the free_space_dict
+        print("SWAP MF!", self.swap_lhs_rhs)
+        if self.swap_lhs_rhs:
+            # for point in free_space_lhs:
+            #     num_of_crossing_agents_dict[free_space_dict[tuple(point)]] = num_of_crossing_agents_dict.pop(tuple(point))
+            num_of_crossing_agents_dict = {free_space_dict[key]: value for key, value in num_of_crossing_agents_dict.items()}
+            free_space_dict = {v: k for k, v in free_space_dict.items()}
+        print(num_of_crossing_agents_dict)
+        print(free_space_dict)
+        self.num_of_crossing_agents_dict = num_of_crossing_agents_dict
         return free_space_dict
 
     def unrotate_point(self,point: np.ndarray) -> np.ndarray:
@@ -188,10 +204,10 @@ class Costmap():
         point /= point[-1]
         return point[:2]
     
-    def find_closest_point(self, point: np.ndarray, point_set: np.ndarray) -> np.ndarray:
+    def find_closest_point(self, point: np.ndarray, point_set: np.ndarray):
         ''' Finds the closest point in a set of points to a given point '''
         closest_point_idx = np.argmin(np.linalg.norm(point_set - point, axis = 1))
-        return point_set[closest_point_idx]
+        return point_set[closest_point_idx], np.linalg.norm(point_set[closest_point_idx] - point)
 
     def pixel_to_world(self, pixel_point: np.ndarray) -> np.ndarray:
         ''' Converts a pixel point to world coordinates '''
@@ -308,25 +324,49 @@ def get_gap_point(ta, route_lengths, costmap):
     for task_list_index in range (len(ta)):
         robot_pose[task_list_index,:] = goals[ta[task_list_index][-1]-(len(ta)+1), :] #robot pose after it has reached points of interest / pose of final task in robots task list
     
-    free_space_points = costmap.pixel_to_world(np.array(list(costmap.free_space_dict.keys())))
-    cost_matrix_unsorted = distance.cdist(free_space_points, robot_pose, 'euclidean')/0.05
+    free_space_points_pixel = np.array(list(costmap.free_space_dict.keys()))
+    free_space_points_world = costmap.pixel_to_world(free_space_points_pixel)
+    #costmap.num_of_crossing_agents_dict(tuple(list(crossing_point)))
+    cost_matrix_unsorted = distance.cdist(free_space_points_world, robot_pose, 'euclidean')/0.05
 
     for i in range (len(ta)):
         cost_matrix_unsorted[:, i] += route_lengths[i] #Include agent route length in metric for cost to crossing point
 
-    cost_matrix_sorted = np.sort(cost_matrix_unsorted)
+    cost_matrix_sorted = np.sort(cost_matrix_unsorted) #Get the closest agents to each possible crossing points
     cost_matrix_sorted = cost_matrix_sorted[:, :3] #Discard final column
-    crossing_point_idx = np.argmin(np.sum(cost_matrix_sorted, axis  = 1))
-    crossing_point = free_space_points[crossing_point_idx]
+    #crossing_point_idx = np.argmin(np.sum(cost_matrix_sorted, axis  = 1))
+    min_cost = 1000
+    final_num_agents = 0
+    for i in range(len(free_space_points_world)):
+        two_agent_flag = costmap.num_of_crossing_agents_dict[tuple(list(free_space_points_pixel[i]))]
+        if two_agent_flag == True:
+            num_agents_required = 2
+        else:
+            num_agents_required = 3
 
-    opposite_point = costmap.free_space_dict[tuple(world_to_pixel(np.array([crossing_point]), costmap).flatten().tolist())]
+        cost = np.sum(cost_matrix_sorted[i, :num_agents_required])
+        #print("cost without min", cost) 
+        cost += -1*(num_agents_required-2)*len(costmap.tasks_rhs)*5 #Weight for number of RHS tasks 
+        
+        if cost < min_cost:
+            print("cost, n agents:", cost, num_agents_required)
+            crossing_point_idx = i
+            min_cost = cost
+            final_num_agents = num_agents_required
+    print("Number of agents:", final_num_agents)
+    crossing_point = free_space_points_world[crossing_point_idx]
+    crossing_point_pixel = free_space_points_pixel[crossing_point_idx]
+    print("Now crossing at:", crossing_point, free_space_points_pixel[crossing_point_idx])
+    #TO-DO: ensure no obstacles around crossing point (maybe create two free space maps and check there?)
 
+    #opposite_point = costmap.free_space_dict[tuple(world_to_pixel(np.array([crossing_point]), costmap).flatten().tolist())]
+    opposite_point = costmap.free_space_dict[tuple(list(crossing_point_pixel))]
     opposite_point = costmap.pixel_to_world(np.array([opposite_point])).flatten()
     
     # print("Crossing point: ", crossing_point)
     # print("Opposite point: ", opposite_point)
 
-    crossing_agents = np.argsort(cost_matrix_unsorted[crossing_point_idx, :])[:3]
+    crossing_agents = np.argsort(cost_matrix_unsorted[crossing_point_idx, :])[:final_num_agents]
     crossing_task_pairing = create_crossing_tasks(robot_pose, crossing_agents, crossing_point, opposite_point, costmap)
     # print("Pairing: ", crossing_task_pairing)
     for agent in crossing_agents: 
@@ -380,7 +420,7 @@ def solve_mtsp(agents, goals, costmap):
     return ta, route_lengths
 
 def assign_all_tasks(agents, goals):
-
+    print("Started assigning tasks")
     costmap = Costmap(agents, goals)
 
     reordered__goals = costmap.goals
